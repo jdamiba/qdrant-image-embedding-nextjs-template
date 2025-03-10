@@ -2174,7 +2174,178 @@ Let's fix the TypeScript error in the page component by properly typing the erro
       );
 
       try {
-        const formData
+        const formData = new FormData();
+        formData.append("image", file);
+
+        const response = await fetch("/api/add-to-collection", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error("Failed to process image");
+
+        setUploadStatuses((prev) =>
+          prev.map((status, idx) =>
+            idx === i ? { ...status, status: "complete" } : status
+          )
+        );
+      } catch (error: unknown) {
+        setUploadStatuses((prev) =>
+          prev.map((status, idx) =>
+            idx === i
+              ? {
+                  ...status,
+                  status: "error",
+                  error: error instanceof Error ? error.message : "Unknown error",
+                }
+              : status
+          )
+        );
+      }
+    }
+  };
+
+// ... rest of the code ...
+````
+
+
+Changes made:
+1. Changed `error: any` to `error: unknown`
+2. Added type checking with `error instanceof Error`
+3. Provided a fallback error message for non-Error objects
+
+---
+
+_**User**_
+
+get the following error when the app is deployed to vercel- Aborted(Error: ENOENT: no such file or directory, open '/var/task/node_modules/@tensorflow/tfjs-backend-wasm/dist/tfjs-backend-wasm-simd.wasm')
+
+---
+
+_**Assistant**_
+
+
+
+The error occurs because Vercel's serverless environment can't access the WASM files in the same way as our local environment. Let's modify our approach to use the WASM files from a CDN instead:
+
+````typescript:utils/embedding-node.ts
+import * as tf from "@tensorflow/tfjs";
+import { setWasmPaths } from "@tensorflow/tfjs-backend-wasm";
+import * as mobilenet from "@tensorflow-models/mobilenet";
+import sharp from "sharp";
+
+// Use WASM files from CDN
+setWasmPaths(
+  "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.17.0/dist/"
+);
+
+let model: mobilenet.MobileNet | null = null;
+
+async function loadModel() {
+  if (!model) {
+    await tf.setBackend("wasm");
+    model = await mobilenet.load();
+  }
+  return model;
+}
+
+// ... rest of the file stays the same ...
+````
+
+Key changes:
+1. Removed Node.js path handling
+2. Using jsdelivr CDN to serve WASM files
+3. Removed filesystem-dependent code
+
+This should work in both local development and Vercel's serverless environment. Make sure the version number in the CDN URL matches your installed version of `@tensorflow/tfjs-backend-wasm`.
+
+---
+
+_**User**_
+
+getting error locally - Aborted(Error: ENOENT: no such file or directory, open 'https:/cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.17.0/dist/tfjs-backend-wasm-simd.wasm')
+
+---
+
+_**Assistant**_
+
+
+
+Let's modify the approach to handle both local development and production environments:
+
+````typescript:utils/embedding-node.ts
+import * as tf from "@tensorflow/tfjs";
+import { setWasmPaths } from "@tensorflow/tfjs-backend-wasm";
+import * as mobilenet from "@tensorflow-models/mobilenet";
+import sharp from "sharp";
+
+// Set WASM paths based on environment
+if (process.env.NODE_ENV === "production") {
+  // Use CDN in production
+  setWasmPaths(
+    "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.17.0/dist/"
+  );
+} else {
+  // Use local files in development
+  setWasmPaths("/tfjs-backend-wasm/");
+}
+
+let model: mobilenet.MobileNet | null = null;
+
+// ... rest of the file stays the same ...
+````
+
+This approach:
+1. Uses local WASM files in development (copied by our postinstall script)
+2. Uses CDN files in production
+3. Maintains the same functionality in both environments
+
+Make sure the postinstall script is still in place to copy WASM files for local development.
+
+---
+
+_**User**_
+
+Aborted(Error: ENOENT: no such file or directory, open '/tfjs-backend-wasm/tfjs-backend-wasm-simd.wasm').
+
+---
+
+_**Assistant**_
+
+
+
+The error suggests the WASM files aren't being found in the public directory. Let's update the path to be absolute and ensure we're using the correct path structure:
+
+````typescript:utils/embedding-node.ts
+import * as tf from "@tensorflow/tfjs";
+import { setWasmPaths } from "@tensorflow/tfjs-backend-wasm";
+import * as mobilenet from "@tensorflow-models/mobilenet";
+import sharp from "sharp";
+import path from "path";
+
+// Set WASM paths based on environment
+if (process.env.NODE_ENV === "production") {
+  // Use CDN in production
+  setWasmPaths(
+    "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.17.0/dist/"
+  );
+} else {
+  // Use local files in development with absolute path
+  const wasmDir = path.join(process.cwd(), "public", "tfjs-backend-wasm");
+  setWasmPaths(wasmDir + path.sep);
+}
+
+let model: mobilenet.MobileNet | null = null;
+
+// ... rest of the file stays the same ...
+````
+
+This ensures we're using the absolute path to the WASM files in development. Also, double-check that the postinstall script ran successfully by verifying the files exist in:
+```
+public/tfjs-backend-wasm/tfjs-backend-wasm-simd.wasm
+```
+
+You can run `npm run postinstall` again if needed to ensure the files are copied.
 
 ---
 

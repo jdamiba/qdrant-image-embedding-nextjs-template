@@ -105,7 +105,7 @@ export default function Home() {
       <main className="max-w-4xl mx-auto space-y-12">
         {/* Collection Building Section */}
         <section className="space-y-6">
-          <h2 className="text-2xl font-bold">Build Image Collection</h2>
+          <h2 className="text-2xl font-bold">Add Image(s) toCollection</h2>
           <input
             type="file"
             multiple

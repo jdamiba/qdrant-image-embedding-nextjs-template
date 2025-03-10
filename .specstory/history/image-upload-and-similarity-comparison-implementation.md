@@ -1772,7 +1772,222 @@ _**Assistant**_
 I'll modify the `add-to-collection` route to check for and create the collection if it doesn't exist:
 
 ````typescript:app/api/add-to-collection/route.ts
-import { NextRequest, NextResponse }
+import { NextRequest, NextResponse } from "next/server";
+import { QdrantClient } from "@qdrant/js-client-rest";
+import { generateEmbedding } from "@/utils/embedding-node";
+
+const qdrant = new QdrantClient({
+  url: process.env.QDRANT_URL,
+  apiKey: process.env.QDRANT_API_KEY,
+});
+
+const COLLECTION_NAME = "image_vector_embeddings_20250310";
+const VECTOR_SIZE = 1024; // MobileNet embedding size
+
+async function ensureCollection() {
+  try {
+    // Check if collection exists
+    const collections = await qdrant.getCollections();
+    const exists = collections.collections.some(
+      (collection) => collection.name === COLLECTION_NAME
+    );
+
+    if (!exists) {
+      // Create collection if it doesn't exist
+      await qdrant.createCollection(COLLECTION_NAME, {
+        vectors: {
+          size: VECTOR_SIZE,
+          distance: "Cosine",
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Error ensuring collection exists:", error);
+    throw error;
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    // Ensure collection exists before proceeding
+    await ensureCollection();
+
+    const formData = await request.formData();
+    const file = formData.get("image") as File;
+
+    if (!file) {
+      return NextResponse.json(
+        { error: "No image file provided" },
+        { status: 400 }
+      );
+    }
+
+    // Convert file to base64
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const base64Image = buffer.toString("base64");
+
+    // Generate embedding
+    const embedding = await generateEmbedding(base64Image);
+
+    // Upload to Qdrant
+    await qdrant.upsert(COLLECTION_NAME, {
+      points: [
+        {
+          id: Date.now(),
+          vector: embedding,
+          payload: {
+            filename: file.name,
+          },
+        },
+      ],
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Error processing image:", error);
+    return NextResponse.json(
+      { error: error.message || "Error processing image" },
+      { status: 500 }
+    );
+  }
+}
+````
+
+Key changes:
+1. Added `ensureCollection` function to check if collection exists
+2. Creates collection with correct vector size and distance metric if it doesn't exist
+3. Calls `ensureCollection` at the start of the POST handler
+4. Uses Cosine distance for better similarity matching
+5. Sets vector size to 1024 (MobileNet's embedding size)
+
+---
+
+_**User**_
+
+I am not very familiar with webassembly or WASM. please explain to me why we need a postinstall script in this project
+
+---
+
+_**Assistant**_
+
+
+
+The postinstall script (`scripts/setup-wasm.js`) is needed because we're using TensorFlow.js with WebAssembly (WASM) backend. Here's why:
+
+1. TensorFlow.js WASM backend requires specific `.wasm` files to run its operations. These files contain the compiled WebAssembly code that performs the actual tensor operations and neural network computations.
+
+2. These `.wasm` files are included in the `@tensorflow/tfjs-backend-wasm` package, but they need to be accessible to the browser through your application's public directory.
+
+3. Our postinstall script does this by:
+   ```javascript
+   // Copy WASM files from node_modules to public directory
+   const sourceDir = path.join(
+     process.cwd(),
+     "node_modules/@tensorflow/tfjs-backend-wasm/dist"
+   );
+   const wasmDir = path.join(process.cwd(), "public", "tfjs-backend-wasm");
+   ```
+
+4. Without this script, the WASM files would stay in `node_modules` where the browser can't access them, and TensorFlow.js would fail to initialize its WASM backend.
+
+Think of it like this: WebAssembly is like a low-level programming language that runs in the browser at near-native speed. The `.wasm` files are the "executables" that TensorFlow.js needs to perform its calculations efficiently. Our postinstall script just makes sure these executables are in a place where the browser can find them.
+
+---
+
+_**User**_
+
+let's update the readme to explain how we are using tensorflow and web assembly to create vector embeddings, and to explain how we are using qdrant for similarity search
+
+---
+
+_**Assistant**_
+
+
+
+Here's an updated README that explains the technical implementation:
+
+````markdown:README.md
+# Image Similarity Search with TensorFlow.js and Qdrant
+
+This application demonstrates how to implement image similarity search using TensorFlow.js for generating vector embeddings and Qdrant for similarity search.
+
+## Technical Overview
+
+### Vector Embeddings with TensorFlow.js
+- Uses MobileNet model through TensorFlow.js to generate vector embeddings (1024-dimensional vectors) from images
+- Leverages WebAssembly (WASM) backend for efficient tensor operations
+- The embedding process:
+  1. Resizes images to 224x224 pixels (MobileNet's expected input size)
+  2. Passes the image through MobileNet to generate embeddings
+  3. Uses the model's feature vectors as embeddings for similarity comparison
+
+### Similarity Search with Qdrant
+- Stores image embeddings in a Qdrant collection with Cosine similarity metric
+- Each vector in the collection includes:
+  - 1024-dimensional embedding vector
+  - Metadata (filename)
+- Performs similarity search using Qdrant's vector search capabilities
+- Returns similarity scores between 0 and 1 (higher means more similar)
+
+## Getting Started
+
+1. Set up environment variables:
+```env
+QDRANT_URL=your_qdrant_url
+QDRANT_API_KEY=your_qdrant_api_key
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+This will also run a postinstall script to set up WebAssembly files required by TensorFlow.js.
+
+3. Run the development server:
+```bash
+npm run dev
+```
+
+4. Open [http://localhost:3000](http://localhost:3000) with your browser.
+
+## How It Works
+
+1. **Adding Images to Collection**
+   - Upload one or more images
+   - TensorFlow.js generates embeddings using MobileNet
+   - Embeddings are stored in Qdrant collection
+
+2. **Finding Similar Images**
+   - Upload a target image
+   - Generate its embedding
+   - Query Qdrant to find similarity scores
+   - Display the similarity percentage
+
+## Technical Details
+
+### WebAssembly Integration
+- TensorFlow.js uses WebAssembly for efficient tensor operations
+- WASM files are copied from node_modules to public directory during installation
+- This enables high-performance image processing in both browser and server environments
+
+### Vector Search
+- Collection uses Cosine similarity for comparing vectors
+- Each vector has 1024 dimensions (MobileNet's feature vector size)
+- Similarity scores are normalized between 0 and 1
+
+## Learn More
+- [TensorFlow.js Documentation](https://www.tensorflow.org/js)
+- [Qdrant Documentation](https://qdrant.tech/documentation/)
+- [MobileNet Model](https://github.com/tensorflow/tfjs-models/tree/master/mobilenet)
+````
+
+This README now:
+1. Explains the technical architecture
+2. Details how we use TensorFlow.js and WebAssembly
+3. Describes the vector embedding and similarity search process
+4. Provides setup instructions
+5. Includes technical details about the implementation
 
 ---
 

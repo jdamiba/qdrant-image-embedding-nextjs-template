@@ -6,10 +6,38 @@ const qdrant = new QdrantClient({
   url: process.env.QDRANT_URL,
   apiKey: process.env.QDRANT_API_KEY,
 });
+
 const COLLECTION_NAME = "image_vector_embeddings_20250310";
+const VECTOR_SIZE = 1024; // MobileNet embedding size
+
+async function ensureCollection() {
+  try {
+    // Check if collection exists
+    const collections = await qdrant.getCollections();
+    const exists = collections.collections.some(
+      (collection) => collection.name === COLLECTION_NAME
+    );
+
+    if (!exists) {
+      // Create collection if it doesn't exist
+      await qdrant.createCollection(COLLECTION_NAME, {
+        vectors: {
+          size: VECTOR_SIZE,
+          distance: "Cosine",
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Error ensuring collection exists:", error);
+    throw error;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
+    // Ensure collection exists before proceeding
+    await ensureCollection();
+
     const formData = await request.formData();
     const file = formData.get("image") as File;
 
@@ -32,7 +60,7 @@ export async function POST(request: NextRequest) {
     await qdrant.upsert(COLLECTION_NAME, {
       points: [
         {
-          id: Date.now(), // Using timestamp as ID - you might want a better ID strategy
+          id: Date.now(),
           vector: embedding,
           payload: {
             filename: file.name,

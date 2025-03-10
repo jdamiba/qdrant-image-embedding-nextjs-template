@@ -1759,6 +1759,23 @@ This changes:
 
 ---
 
+_**User**_
+
+we need to add logic to the add-to-collection route so that if the collection doesn't already exist, we create it
+
+---
+
+_**Assistant**_
+
+
+
+I'll modify the `add-to-collection` route to check for and create the collection if it doesn't exist:
+
+````typescript:app/api/add-to-collection/route.ts
+import { NextRequest, NextResponse }
+
+---
+
 
 
 ---

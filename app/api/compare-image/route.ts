@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { generateEmbedding } from "@/utils/embedding-node";
 
+// Define custom error type
+type ProcessingError = {
+  message: string;
+  status?: number;
+  cause?: unknown;
+};
+
 const qdrant = new QdrantClient({
   url: process.env.QDRANT_URL,
   apiKey: process.env.QDRANT_API_KEY,
@@ -41,10 +48,17 @@ export async function POST(request: NextRequest) {
       similarity,
       filename: searchResult[0]?.payload?.filename,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error processing image:", error);
+
+    const processingError: ProcessingError = {
+      message:
+        error instanceof Error ? error.message : "Error processing image",
+      cause: error,
+    };
+
     return NextResponse.json(
-      { error: error.message || "Error processing image" },
+      { error: processingError.message },
       { status: 500 }
     );
   }

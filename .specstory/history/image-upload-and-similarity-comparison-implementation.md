@@ -1991,6 +1991,193 @@ This README now:
 
 ---
 
+_**User**_
+
+./app/api/add-to-collection/route.ts
+73:19  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+---
+
+_**Assistant**_
+
+
+
+Let's fix the TypeScript error by properly typing the error. We'll create a custom error type and use it in the catch block:
+
+````typescript:app/api/add-to-collection/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { QdrantClient } from "@qdrant/js-client-rest";
+import { generateEmbedding } from "@/utils/embedding-node";
+
+// Define custom error type
+type ProcessingError = {
+  message: string;
+  status?: number;
+  cause?: unknown;
+};
+
+const qdrant = new QdrantClient({
+  url: process.env.QDRANT_URL,
+  apiKey: process.env.QDRANT_API_KEY,
+});
+
+const COLLECTION_NAME = "image_vector_embeddings_20250310";
+const VECTOR_SIZE = 1024;
+
+// ... ensureCollection function stays the same ...
+
+export async function POST(request: NextRequest) {
+  try {
+    await ensureCollection();
+    // ... rest of the try block stays the same ...
+  } catch (error: unknown) {
+    console.error("Error processing image:", error);
+    
+    const processingError: ProcessingError = {
+      message: error instanceof Error ? error.message : "Error processing image",
+      cause: error
+    };
+    
+    return NextResponse.json(
+      { error: processingError.message },
+      { status: 500 }
+    );
+  }
+}
+````
+
+Key changes:
+1. Added a `ProcessingError` type definition
+2. Changed `error: any` to `error: unknown` for type safety
+3. Added proper error type checking and handling
+4. Maintained the same error response format but with better typing
+
+---
+
+_**User**_
+
+./app/api/compare-image/route.ts
+44:19  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+---
+
+_**Assistant**_
+
+
+
+
+
+Let's apply the same error handling pattern to the compare-image route:
+
+````typescript:app/api/compare-image/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { QdrantClient } from "@qdrant/js-client-rest";
+import { generateEmbedding } from "@/utils/embedding-node";
+
+// Define custom error type
+type ProcessingError = {
+  message: string;
+  status?: number;
+  cause?: unknown;
+};
+
+const qdrant = new QdrantClient({
+  url: process.env.QDRANT_URL,
+  apiKey: process.env.QDRANT_API_KEY,
+});
+const COLLECTION_NAME = "image_vector_embeddings_20250310";
+
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData();
+    const file = formData.get("image") as File;
+
+    if (!file) {
+      return NextResponse.json(
+        { error: "No image file provided" },
+        { status: 400 }
+      );
+    }
+
+    // Convert file to base64
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const base64Image = buffer.toString("base64");
+
+    // Generate embedding for uploaded image
+    const embedding = await generateEmbedding(base64Image);
+
+    // Get similarity score from Qdrant
+    const searchResult = await qdrant.search(COLLECTION_NAME, {
+      vector: embedding,
+      limit: 1,
+      with_payload: true,
+    });
+
+    const similarity = searchResult[0]?.score || 0;
+
+    return NextResponse.json({
+      similarity,
+      filename: searchResult[0]?.payload?.filename,
+    });
+  } catch (error: unknown) {
+    console.error("Error processing image:", error);
+    
+    const processingError: ProcessingError = {
+      message: error instanceof Error ? error.message : "Error processing image",
+      cause: error,
+    };
+    
+    return NextResponse.json(
+      { error: processingError.message },
+      { status: 500 }
+    );
+  }
+}
+````
+
+
+Changes made:
+1. Added `ProcessingError` type definition
+2. Changed `error: any` to `error: unknown`
+3. Added proper error type checking and handling
+4. Maintained consistent error handling with the add-to-collection route
+
+---
+
+_**User**_
+
+./app/page.tsx
+58:23  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+
+---
+
+_**Assistant**_
+
+
+
+
+
+Let's fix the TypeScript error in the page component by properly typing the error:
+
+````typescript:app/page.tsx
+// ... other imports and code ...
+
+  const processCollection = async () => {
+    for (let i = 0; i < collectionImages.length; i++) {
+      const file = collectionImages[i];
+      setUploadStatuses((prev) =>
+        prev.map((status, idx) =>
+          idx === i ? { ...status, status: "processing" } : status
+        )
+      );
+
+      try {
+        const formData
+
+---
+
 
 
 ---

@@ -55,11 +55,16 @@ export default function Home() {
             idx === i ? { ...status, status: "complete" } : status
           )
         );
-      } catch (error: any) {
+      } catch (error: unknown) {
         setUploadStatuses((prev) =>
           prev.map((status, idx) =>
             idx === i
-              ? { ...status, status: "error", error: error.message }
+              ? {
+                  ...status,
+                  status: "error",
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
+                }
               : status
           )
         );

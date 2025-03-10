@@ -2554,6 +2554,18 @@ The only change is internal to `embedding-node.ts` - switching from WASM to CPU 
 
 ---
 
+_**User**_
+
+let's update the readme given our new architecture that doesn't use wasm backend 
+
+---
+
+_**Assistant**_
+
+
+
+---
+
 
 
 ---

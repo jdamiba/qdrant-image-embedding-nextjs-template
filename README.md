@@ -7,11 +7,12 @@ This application demonstrates how to implement image similarity search using Ten
 ### Vector Embeddings with TensorFlow.js
 
 - Uses MobileNet model through TensorFlow.js to generate vector embeddings (1024-dimensional vectors) from images
-- Leverages WebAssembly (WASM) backend for efficient tensor operations
+- Runs on CPU backend for compatibility with serverless environments
 - The embedding process:
   1. Resizes images to 224x224 pixels (MobileNet's expected input size)
-  2. Passes the image through MobileNet to generate embeddings
-  3. Uses the model's feature vectors as embeddings for similarity comparison
+  2. Processes images using Sharp for consistent formatting
+  3. Passes the image through MobileNet to generate embeddings
+  4. Uses the model's feature vectors as embeddings for similarity comparison
 
 ### Similarity Search with Qdrant
 
@@ -37,8 +38,6 @@ QDRANT_API_KEY=your_qdrant_api_key
 npm install
 ```
 
-This will also run a postinstall script to set up WebAssembly files required by TensorFlow.js.
-
 3. Run the development server:
 
 ```bash
@@ -63,11 +62,11 @@ npm run dev
 
 ## Technical Details
 
-### WebAssembly Integration
+### Image Processing Pipeline
 
-- TensorFlow.js uses WebAssembly for efficient tensor operations
-- WASM files are copied from node_modules to public directory during installation
-- This enables high-performance image processing in both browser and server environments
+- Uses Sharp for consistent image preprocessing
+- Converts images to raw pixel data for TensorFlow.js
+- Maintains aspect ratios while resizing to required dimensions
 
 ### Vector Search
 
@@ -80,6 +79,7 @@ npm run dev
 - [TensorFlow.js Documentation](https://www.tensorflow.org/js)
 - [Qdrant Documentation](https://qdrant.tech/documentation/)
 - [MobileNet Model](https://github.com/tensorflow/tfjs-models/tree/master/mobilenet)
+- [Sharp Image Processing](https://sharp.pixelplumbing.com/)
 
 ##Qdrant Image Embedding Template
 

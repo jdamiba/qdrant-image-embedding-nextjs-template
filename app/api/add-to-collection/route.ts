@@ -15,7 +15,7 @@ const qdrant = new QdrantClient({
 });
 
 const COLLECTION_NAME = "image_vector_embeddings_20250310";
-const VECTOR_SIZE = 1024; // MobileNet embedding size
+const VECTOR_SIZE = 1280; // MobileNet embedding size
 
 async function ensureCollection() {
   try {

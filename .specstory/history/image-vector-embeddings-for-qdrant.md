@@ -1782,7 +1782,49 @@ Here's the regenerated package.json with the correct dependencies:
 {
   "name": "images-vector-embeddings",
   "version": "0.1.0",
-  "private
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "next": "15.2.1",
+    "@qdrant/js-client-rest": "^1.7.0",
+    "@tensorflow-models/mobilenet": "^2.1.1",
+    "@tensorflow/tfjs-node": "^4.17.0",
+    "sharp": "^0.33.2"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@tailwindcss/postcss": "^4",
+    "tailwindcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "15.2.1",
+    "@eslint/eslintrc": "^3"
+  }
+}
+```
+
+The key changes are:
+1. Removed `@huggingface/inference` since we're not using it anymore
+2. Added TensorFlow.js dependencies:
+   - `@tensorflow-models/mobilenet`
+   - `@tensorflow/tfjs-node`
+3. Kept `sharp` for image preprocessing
+
+After updating package.json, run:
+```bash
+npm install
+```
+
+This will install the correct dependencies needed for the MobileNet-based image embedding generation.
 
 ---
 

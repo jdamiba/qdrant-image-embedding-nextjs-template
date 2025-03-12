@@ -16,6 +16,7 @@ export default function Home() {
   const [targetPreview, setTargetPreview] = useState<string | null>(null);
   const [similarityScore, setSimilarityScore] = useState<number | null>(null);
   const [isComparing, setIsComparing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleCollectionUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
@@ -31,44 +32,49 @@ export default function Home() {
   };
 
   const processCollection = async () => {
-    for (let i = 0; i < collectionImages.length; i++) {
-      const file = collectionImages[i];
-      setUploadStatuses((prev) =>
-        prev.map((status, idx) =>
-          idx === i ? { ...status, status: "processing" } : status
-        )
-      );
-
-      try {
-        const formData = new FormData();
-        formData.append("image", file);
-
-        const response = await fetch("/api/add-to-collection", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) throw new Error("Failed to process image");
-
+    setIsProcessing(true);
+    try {
+      for (let i = 0; i < collectionImages.length; i++) {
+        const file = collectionImages[i];
         setUploadStatuses((prev) =>
           prev.map((status, idx) =>
-            idx === i ? { ...status, status: "complete" } : status
+            idx === i ? { ...status, status: "processing" } : status
           )
         );
-      } catch (error: unknown) {
-        setUploadStatuses((prev) =>
-          prev.map((status, idx) =>
-            idx === i
-              ? {
-                  ...status,
-                  status: "error",
-                  error:
-                    error instanceof Error ? error.message : "Unknown error",
-                }
-              : status
-          )
-        );
+
+        try {
+          const formData = new FormData();
+          formData.append("image", file);
+
+          const response = await fetch("/api/add-to-collection", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) throw new Error("Failed to process image");
+
+          setUploadStatuses((prev) =>
+            prev.map((status, idx) =>
+              idx === i ? { ...status, status: "complete" } : status
+            )
+          );
+        } catch (error: unknown) {
+          setUploadStatuses((prev) =>
+            prev.map((status, idx) =>
+              idx === i
+                ? {
+                    ...status,
+                    status: "error",
+                    error:
+                      error instanceof Error ? error.message : "Unknown error",
+                  }
+                : status
+            )
+          );
+        }
       }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -128,9 +134,12 @@ export default function Home() {
             <div className="space-y-4">
               <button
                 onClick={processCollection}
-                className="px-4 py-2 bg-violet-500 text-white rounded-md"
+                disabled={isProcessing}
+                className="px-4 py-2 bg-violet-500 text-white rounded-md
+                  hover:bg-violet-600 cursor-grab active:cursor-grabbing
+                  disabled:bg-violet-300 disabled:cursor-not-allowed"
               >
-                Process Images
+                {isProcessing ? "Processing Images..." : "Process Images"}
               </button>
 
               <div className="space-y-2">

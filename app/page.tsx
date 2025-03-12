@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { EmbeddingModelType } from "@/utils/embedding-node";
 
 type UploadStatus = {
   filename: string;
@@ -17,6 +18,8 @@ export default function Home() {
   const [similarityScore, setSimilarityScore] = useState<number | null>(null);
   const [isComparing, setIsComparing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedModelType, setSelectedModelType] =
+    useState<EmbeddingModelType>("MobileNet");
 
   const handleCollectionUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
@@ -45,6 +48,7 @@ export default function Home() {
         try {
           const formData = new FormData();
           formData.append("image", file);
+          formData.append("modelType", selectedModelType);
 
           const response = await fetch("/api/add-to-collection", {
             method: "POST",
@@ -96,6 +100,7 @@ export default function Home() {
     try {
       const formData = new FormData();
       formData.append("image", targetImage);
+      formData.append("modelType", selectedModelType);
 
       const response = await fetch("/api/compare-image", {
         method: "POST",
@@ -210,6 +215,28 @@ export default function Home() {
             </div>
           )}
         </section>
+
+        <div className="mb-4">
+          <label
+            htmlFor="modelType"
+            className="block text-sm font-medium text-gray-700"
+          >
+            Embedding Model
+          </label>
+          <select
+            id="modelType"
+            value={selectedModelType}
+            onChange={(e) =>
+              setSelectedModelType(e.target.value as EmbeddingModelType)
+            }
+            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+          >
+            <option value="MobileNet">
+              MobileNet - Fast, local processing
+            </option>
+            <option value="CLIP">CLIP - High quality, cloud processing</option>
+          </select>
+        </div>
       </main>
     </div>
   );

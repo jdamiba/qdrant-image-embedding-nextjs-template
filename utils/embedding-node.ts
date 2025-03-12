@@ -1,24 +1,38 @@
 import * as tf from "@tensorflow/tfjs";
 import * as mobilenet from "@tensorflow-models/mobilenet";
 import sharp from "sharp";
-import { version } from "process";
+import { getClipEmbedding } from "./clip-embeddings";
 
-let model: mobilenet.MobileNet | null = null;
+// Cache for loaded models
+const modelCache: Record<string, any> = {};
 
-async function loadModel() {
-  if (!model) {
-    // Use CPU backend instead of WASM
+export type EmbeddingModelType = "MobileNet" | "CLIP";
+
+export async function loadModel(modelType: EmbeddingModelType) {
+  const cacheKey = modelType.toLowerCase();
+
+  if (!modelCache[cacheKey]) {
+    // Use CPU backend
     await tf.setBackend("cpu");
-    model = await mobilenet.load({ version: 2, alpha: 1.0 });
+
+    if (modelType === "MobileNet") {
+      modelCache[cacheKey] = await mobilenet.load({ version: 2, alpha: 1.0 });
+    }
   }
-  return model;
+
+  return modelCache[cacheKey];
 }
 
 export async function generateEmbedding(
-  base64Image: string
+  base64Image: string,
+  modelType: EmbeddingModelType = "MobileNet"
 ): Promise<number[]> {
   try {
-    const mobileNetModel = await loadModel();
+    if (modelType === "CLIP") {
+      return await getClipEmbedding(base64Image);
+    }
+
+    const model = await loadModel(modelType);
 
     // Convert base64 to buffer
     const imageBuffer = Buffer.from(base64Image, "base64");
@@ -32,13 +46,9 @@ export async function generateEmbedding(
     // Create tensor from raw pixel data
     const tfImage = tf.tensor3d(new Uint8Array(processedImage), [224, 224, 3]);
 
-    const predictions = await mobileNetModel.classify(tfImage);
-    console.log("predictions", predictions);
-
-    // Generate embedding
-    const embedding = mobileNetModel.infer(tfImage, true);
+    // Generate embedding with MobileNet
+    const embedding = model.infer(tfImage, true);
     const embeddingData = await embedding.data();
-    console.log("embeddingData", embeddingData);
 
     // Cleanup
     tfImage.dispose();
@@ -46,7 +56,22 @@ export async function generateEmbedding(
 
     return Array.from(embeddingData);
   } catch (error) {
-    console.error("Error generating embedding:", error);
+    console.error(`Error generating embedding with ${modelType}:`, error);
     throw error;
   }
+}
+
+export function getModelInfo(modelType: EmbeddingModelType) {
+  const models = {
+    MobileNet: {
+      collectionName: "mobilenet_embeddings",
+      vectorSize: 1280,
+    },
+    CLIP: {
+      collectionName: "clip_embeddings",
+      vectorSize: 768,
+    },
+  };
+
+  return models[modelType];
 }
